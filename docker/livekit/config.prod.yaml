@@ -1,0 +1,27 @@
+# LiveKit server configuration for production (EC2), used by compose.prod.yaml.
+# Same as config.yaml, except the public IP is advertised and the webhook
+# goes to the api container.
+
+port: 7880
+
+bind_addresses:
+  - ""
+
+rtc:
+  tcp_port: 7881
+  port_range_start: 50300
+  port_range_end: 50310
+  # Advertise the EC2's public IP so browsers (and the bot) can send media to it.
+  use_external_ip: true
+
+keys:
+  devkey: e6b85aee4bd9475bb71855eb60e00a8f
+
+logging:
+  json: false
+  level: info
+
+webhook:
+  urls:
+    - http://api:4000/api/v1/livekit/webhook
+  api_key: devkey

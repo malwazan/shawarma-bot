@@ -1,0 +1,125 @@
+# Production services. Used together with compose.yaml (the infra: db, livekit,
+# jaeger, storage) via the Makefile:
+#   docker compose -f compose.yaml -f compose.prod.yaml ...
+#
+# Caddy is the only public entrypoint (80/443), see docker/caddy/Caddyfile:
+#   /api/*         -> api (4000)
+#   /*             -> frontend (3000)
+#   livekit.DOMAIN -> livekit (7880)
+# Voice is internal only: http://haproxy:4001 -> voice-1..3 (4101-4103), one
+# request each at a time. So is the MCP server (http://mcp:4501), which the
+# voice workers call for tools. App services publish no ports.
+
+# Shared settings for every backend process (same image, different command/env).
+# `x-` keys are ignored by Compose; `&backend` names the block so services can
+# merge it in with `<<: *backend`.
+x-backend: &backend
+  build: ./backend
+  image: shawarma-backend
+  restart: unless-stopped
+  env_file: backend/.env # this server's settings and secrets
+  depends_on:
+    migrate:
+      condition: service_completed_successfully
+
+# Docker-network addresses; override backend/.env (everything else lives there).
+x-backend-env: &backend-env
+  APP_ENV: production
+  MAIN_DB_HOST: db
+  OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: http://jaeger:4318/v1/traces
+  LIVEKIT_URL: wss://livekit.${DOMAIN} # for the browser, via Caddy
+  LIVEKIT_API_URL: http://livekit:7880 # for the backend and voice bot, inside Docker
+  VOICE_AGENT_WS_URL: ws://haproxy:4001/api/v1/voice/livekit/call/connect # api's bridge -> a free voice worker
+  MCP_SERVER_URL: http://mcp:4501/mcp # the voice agent's tools
+
+# uvicorn commands use `--forwarded-allow-ips "*"` to trust X-Forwarded-For from
+# Caddy/HAProxy, so request.client is the real visitor. Safe because these ports
+# are not published.
+
+services:
+  livekit:
+    volumes: # Overrides dev config mount
+      - ./docker/livekit/config.prod.yaml:/etc/livekit.yaml:ro
+
+  migrate:
+    <<: *backend
+    restart: "no"
+    command: [alembic, upgrade, head]
+    environment:
+      <<: *backend-env
+      SERVICE_NAME: migrate
+    depends_on:
+      db:
+        condition: service_healthy
+
+  api:
+    <<: *backend
+    command: [uvicorn, src.fastapi:app, --host, 0.0.0.0, --forwarded-allow-ips, "*", --port, "4000"]
+    environment:
+      <<: *backend-env
+      SERVICE_NAME: api
+
+  voice-1:
+    <<: *backend
+    command: [uvicorn, src.fastapi:app, --host, 0.0.0.0, --forwarded-allow-ips, "*", --port, "4101"]
+    environment:
+      <<: *backend-env
+      SERVICE_NAME: voice
+
+  voice-2:
+    <<: *backend
+    command: [uvicorn, src.fastapi:app, --host, 0.0.0.0, --forwarded-allow-ips, "*", --port, "4102"]
+    environment:
+      <<: *backend-env
+      SERVICE_NAME: voice
+
+  voice-3:
+    <<: *backend
+    command: [uvicorn, src.fastapi:app, --host, 0.0.0.0, --forwarded-allow-ips, "*", --port, "4103"]
+    environment:
+      <<: *backend-env
+      SERVICE_NAME: voice
+
+  # Tools for the voice agent (orders, complaints). Internal only.
+  mcp:
+    build: ./mcp-server
+    image: shawarma-mcp
+    restart: unless-stopped
+
+  haproxy:
+    image: haproxy:3.2-alpine
+    restart: unless-stopped
+    volumes:
+      - ./docker/haproxy/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+    depends_on:
+      - voice-1
+      - voice-2
+      - voice-3
+
+  frontend:
+    build: ./frontend
+    image: shawarma-frontend
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2.10-alpine
+    restart: unless-stopped
+    environment:
+      # Set in the root .env: your domain, or `localhost` to try it locally.
+      DOMAIN: ${DOMAIN:?Set DOMAIN in .env (e.g. bot.example.com)}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp" # HTTP/3
+    volumes:
+      - ./docker/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data # certificates caching to avoid Let's Encrypt rate limits
+      - caddy_config:/config
+    depends_on:
+      - api
+      - frontend
+      - livekit
+
+volumes:
+  caddy_data:
+  caddy_config:

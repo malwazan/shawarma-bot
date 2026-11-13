@@ -1,0 +1,29 @@
+# The only public entrypoint (ports 80/443). Caddy gets and renews the HTTPS
+# certificate for {$DOMAIN} automatically, and redirects http -> https.
+#
+#   https://DOMAIN/api/*      -> API service
+#   https://DOMAIN/*          -> frontend
+#   wss://livekit.DOMAIN      -> LiveKit signaling
+
+{$DOMAIN} {
+	encode zstd gzip
+
+	# Internal only: the api's LiveKit bridge reaches the voice agent through
+	# HAProxy. Without this, anyone could start a bot (and spend LLM/STT/TTS credits).
+	handle /api/v1/voice/* {
+		respond 404
+	}
+
+	handle /api/* {
+		reverse_proxy api:4000
+	}
+
+	handle {
+		reverse_proxy frontend:3000
+	}
+}
+
+# LiveKit signaling for browsers (needs a DNS record for livekit.DOMAIN).
+livekit.{$DOMAIN} {
+	reverse_proxy livekit:7880
+}

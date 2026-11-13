@@ -1,0 +1,32 @@
+# LiveKit server configuration for local development
+# Full reference: https://docs.livekit.io/home/self-hosting/configuration/
+
+port: 7880
+
+bind_addresses:
+  - ""   # bind to all interfaces
+
+rtc:
+  # TCP fallback for clients that cannot use UDP
+  tcp_port: 7881
+  # UDP port range for media traffic (keep range small for dev)
+  port_range_start: 50300
+  port_range_end: 50310
+  # Advertise localhost for media. Otherwise LiveKit advertises its container
+  # IP (172.x), which the browser can't reach: Docker Desktop runs containers in
+  # a VM. The published ports above (UDP range + 7881/tcp) forward localhost in.
+  node_ip: 127.0.0.1
+  use_external_ip: false
+
+# API keys — override these in production (or use LIVEKIT_KEYS env var)
+keys:
+  devkey: e6b85aee4bd9475bb71855eb60e00a8f
+
+logging:
+  json: false
+  level: info
+
+webhook:
+  urls:
+    - http://host.docker.internal:4000/api/v1/livekit/webhook
+  api_key: devkey

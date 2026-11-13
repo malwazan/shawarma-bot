@@ -1,0 +1,73 @@
+services:
+  jaeger:
+    image: jaegertracing/jaeger:2.19.0
+    restart: unless-stopped
+    ports:
+      - "16686:16686"
+      - "4318:4318"
+
+  db:
+    image: postgres:16.15-trixie
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: "admin"
+      POSTGRES_PASSWORD: "admintest"
+      POSTGRES_DB: "postgres"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    ports:
+      - "5432:5432"
+    expose:
+      - 5432
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  storage:
+    image: rustfs/rustfs:latest
+    restart: unless-stopped
+    container_name: minio
+    ports:
+      - "9000:9000"   # S3 API
+      - "9001:9001"   # Web UI
+    environment:
+      RUSTFS_ACCESS_KEY: admin
+      RUSTFS_SECRET_KEY: admintest
+    volumes:
+      - storage_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:9000/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+ 
+  storage-init:
+    image: rustfs/rc:latest
+    depends_on:
+      storage:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      rc alias set local http://storage:9000 admin admintest;
+      rc bucket create local/s3-storage --ignore-existing;
+      echo 'Bucket s3-storage created successfully';
+      "
+  
+  livekit:
+    image: livekit/livekit-server:v1.9.12
+    command: --config /etc/livekit.yaml
+    restart: unless-stopped
+    volumes:
+      - ./docker/livekit/config.yaml:/etc/livekit.yaml
+    ports:
+      - "7880:7880"
+      - "7881:7881"
+      - "50300-50310:50300-50310/udp"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+volumes:
+  postgres_data:
+  storage_data:

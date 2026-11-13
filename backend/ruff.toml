@@ -1,0 +1,28 @@
+# Ruff: formatter and linter. Run with `uv run task lint` (fix) or
+# `uv run task lint_check` (check only, e.g. in CI).
+# Ruff already skips .venv, caches and other common directories.
+
+target-version = "py314"
+
+# First-party code is the `src` package under this directory. Ruff's default
+# also treats src/ itself as a root, which would make our src/logfire.py and
+# src/fastapi.py look like the `logfire` and `fastapi` packages when sorting
+# imports.
+src = ["."]
+
+[lint]
+# E4/E7/E9 + F: pycodestyle errors and pyflakes (Ruff's defaults).
+# I: import sorting. ANN: missing type annotations on function arguments and
+# return values, so the type checker has something to check.
+select = [
+    "E4", "E7", "E9", "F", "I",
+    "ANN001", "ANN002", "ANN003", "ANN201", "ANN202", "ANN205", "ANN206", "ANN401",
+]
+
+[lint.flake8-annotations]
+# Allow unannotated `_` / `_x` arguments, e.g. unused event-handler parameters.
+suppress-dummy-args = true
+
+[lint.per-file-ignores]
+# Alembic writes these; they're never edited by hand.
+"alembic/**" = ["ANN", "I"]
