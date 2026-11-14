@@ -5,7 +5,7 @@ import { Skeleton } from "#/components/ui/skeleton";
 import {
 	type Call,
 	type CallMessage,
-	callMessagesQueryOptions,
+	callDetailsQueryOptions,
 } from "#/lib/api/calls";
 import { getErrorMessage } from "#/lib/api/client";
 
@@ -14,10 +14,10 @@ const formatOffset = (ms: number) => {
 	return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
 };
 
-/** A call's transcript; refreshes while the call is in progress. */
+/** A call's recording and transcript; refreshes while the call is in progress. */
 export function CallTranscript({ call }: { call: Call }) {
 	const { data, isPending, error, refetch } = useQuery(
-		callMessagesQueryOptions(call),
+		callDetailsQueryOptions(call),
 	);
 
 	if (isPending) {
@@ -41,11 +41,27 @@ export function CallTranscript({ call }: { call: Call }) {
 		);
 	}
 
-	const messages = data.filter((m) => m.role !== "system");
-	const systemPrompt = data.find((m) => m.role === "system")?.content;
+	const messages = data.transcript.filter((m) => m.role !== "system");
+	const systemPrompt = data.transcript.find(
+		(m) => m.role === "system",
+	)?.content;
 
 	return (
 		<div className="grid gap-4">
+			{data.recording_url && (
+				<div className="grid gap-2 rounded-md border p-3">
+					<span className="font-medium text-muted-foreground text-sm">
+						Recording
+					</span>
+					{/* biome-ignore lint/a11y/useMediaCaption: no captions for call audio; the transcript is below */}
+					<audio
+						controls
+						preload="metadata"
+						src={data.recording_url}
+						className="w-full"
+					/>
+				</div>
+			)}
 			{systemPrompt && (
 				<details className="rounded-md border p-3 text-sm">
 					<summary className="cursor-pointer font-medium text-muted-foreground">

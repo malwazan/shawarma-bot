@@ -59,6 +59,12 @@ class Settings(BaseSettings):
     MCP_SERVER_URL: str = "http://localhost:4501/mcp"
     MCP_SERVER_SECRET: SecretStr = SecretStr("dev-mcp-secret")
 
+    # S3 STORAGE (call recordings)
+    S3_ENDPOINT_URL: str = "http://localhost:9000"
+    S3_ACCESS_KEY: str = "admin"
+    S3_SECRET_KEY: SecretStr = SecretStr("admintest")
+    S3_BUCKET: str = "s3-storage"
+
     model_config = SettingsConfigDict(
         env_file_encoding="utf-8",
         case_sensitive=False,

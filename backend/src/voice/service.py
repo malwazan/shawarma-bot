@@ -28,6 +28,7 @@ from src.voice.facts import update_user_facts
 from src.voice.mcp import load_mcp_tools
 from src.voice.prompt import build_prompt
 from src.voice.providers import create_llm, create_stt, create_tts
+from src.voice.recording import CallRecorder
 from src.voice.schemas import CallMetadata, LiveKitAgentInit
 from src.voice.transcript import TranscriptRecorder
 
@@ -54,6 +55,7 @@ class VoiceService:
         facts = await repository.get_facts_for_call(self._session_factory, call_id)
 
         failed = False
+        recording_url = None
         try:
             if keys.missing():
                 logger.error(
@@ -63,8 +65,9 @@ class VoiceService:
                 )
                 failed = True
             else:
+                recording_url = f"recordings/{call_id}.wav"
                 failed = not await self._run_call(
-                    websocket, init, call_metadata, keys, facts
+                    websocket, init, call_metadata, keys, facts, recording_url
                 )
         except BaseException:
             failed = True
@@ -74,7 +77,9 @@ class VoiceService:
             # that arrived first.
             status = CallStatus.FAILED if failed else CallStatus.COMPLETED
             try:
-                await repository.finish_call(self._session_factory, call_id, status)
+                await repository.finish_call(
+                    self._session_factory, call_id, status, recording_url
+                )
                 logger.info("Call finished.", call_id=str(call_id), status=status.value)
             except Exception:
                 logger.exception(
@@ -97,6 +102,7 @@ class VoiceService:
         call_metadata: CallMetadata,
         keys: ApiKeys,
         facts: str | None,
+        recording_url: str,
     ) -> bool:
         """Run the call. Returns False if it failed (a provider stopped working)."""
         assert keys.llm_key and keys.stt_key and keys.tts_key
@@ -119,6 +125,7 @@ class VoiceService:
         transcript = TranscriptRecorder(
             call_metadata.call_id, self._session_factory, aggregators
         )
+        recorder = CallRecorder(recording_url)
 
         pipeline = Pipeline(
             [
@@ -128,6 +135,7 @@ class VoiceService:
                 llm,
                 tts,
                 transport.output(),
+                recorder.processor,
                 aggregators.assistant(),
             ]
         )

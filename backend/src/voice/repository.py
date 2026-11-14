@@ -91,7 +91,10 @@ async def add_message(
 
 
 async def finish_call(
-    session_factory: AsyncSessionMaker, call_id: UUID, status: CallStatus
+    session_factory: AsyncSessionMaker,
+    call_id: UUID,
+    status: CallStatus,
+    recording_url: str | None = None,
 ) -> None:
     async with session_factory() as session:
         call = await session.get(Call, call_id)
@@ -99,6 +102,7 @@ async def finish_call(
             return
         ended_at = get_utc_now()
         call.status = status
+        call.recording_url = recording_url
         call.ended_at = ended_at
         call.duration = int((ended_at - call.started_at).total_seconds())
         await session.commit()

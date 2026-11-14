@@ -38,6 +38,12 @@ export interface CallMessage {
 	timestamp_ms: number;
 }
 
+export interface CallDetails extends Call {
+	/** API path to stream the recording from; null until the call ends. */
+	recording_url: string | null;
+	transcript: CallMessage[];
+}
+
 /** What the browser needs to join a call's LiveKit room. */
 export interface CallSession {
 	call_id: string;
@@ -67,10 +73,12 @@ export const callsQueryOptions = queryOptions({
 			: false,
 });
 
-export const callMessagesQueryOptions = (call: Call) =>
+// The status is in the key, so the details are fetched again once the call
+// ends (the recording only exists then).
+export const callDetailsQueryOptions = (call: Call) =>
 	queryOptions({
-		queryKey: ["calls", call.id, "messages"],
-		queryFn: () => http.get(`calls/${call.id}/messages`).json<CallMessage[]>(),
+		queryKey: ["calls", call.id, call.status],
+		queryFn: () => http.get(`calls/${call.id}`).json<CallDetails>(),
 		refetchInterval: call.status === "in_progress" ? LIVE_REFRESH_MS : false,
 	});
 

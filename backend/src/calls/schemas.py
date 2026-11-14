@@ -29,3 +29,10 @@ class CallMessageResponse(BaseModel):
     tool_call_id: str | None
     tool_name: str | None
     timestamp_ms: int
+
+
+class CallDetailsResponse(CallResponse):
+    recording_url: (
+        str | None
+    )  # presigned link to the recording; None until the call ends
+    transcript: list[CallMessageResponse]

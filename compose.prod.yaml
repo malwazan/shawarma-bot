@@ -30,7 +30,8 @@ x-backend-env: &backend-env
   LIVEKIT_URL: wss://livekit.${DOMAIN} # for the browser, via Caddy
   LIVEKIT_API_URL: http://livekit:7880 # for the backend and voice bot, inside Docker
   VOICE_AGENT_WS_URL: ws://haproxy:4001/api/v1/voice/livekit/call/connect # api's bridge -> a free voice worker
-  MCP_SERVER_URL: http://mcp:4501/mcp # the voice agent's tools
+  MCP_SERVER_URL: http://mcp:4501/mcp
+  S3_ENDPOINT_URL: http://storage:9000
 
 # uvicorn commands use `--forwarded-allow-ips "*"` to trust X-Forwarded-For from
 # Caddy/HAProxy, so request.client is the real visitor. Safe because these ports

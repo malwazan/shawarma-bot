@@ -209,7 +209,7 @@ export function CallsTableCard() {
 			>
 				<SheetContent className="w-full overflow-y-auto sm:max-w-lg">
 					<SheetHeader>
-						<SheetTitle>Call transcript</SheetTitle>
+						<SheetTitle>Call details</SheetTitle>
 						<SheetDescription>
 							{selected &&
 								`${formatDate(selected.started_at)} · ${STATUS[selected.status].label} · ${formatDuration(selected.duration)}`}

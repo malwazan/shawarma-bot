@@ -31,12 +31,8 @@ class Call(Base):
     )
     from_number: Mapped[str] = mapped_column(VARCHAR(256), nullable=False)  # username
     to_number: Mapped[str] = mapped_column(VARCHAR(256), nullable=False)  # agent name
-    duration: Mapped[int | None] = mapped_column(
-        Integer
-    )  # seconds; set when the call ends
+    duration: Mapped[int | None] = mapped_column(Integer)
     status: Mapped[CallStatus] = mapped_column(
-        # Stored as plain text (no Postgres enum type), so adding a status
-        # later needs no migration.
         Enum(
             CallStatus,
             native_enum=False,
@@ -50,3 +46,4 @@ class Call(Base):
         TIMESTAMP(timezone=True), nullable=False, default=get_utc_now, index=True
     )
     ended_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True))
+    recording_url: Mapped[str | None] = mapped_column(VARCHAR(512))
